@@ -8,41 +8,20 @@ import DashboardPage from './pages/DashboardPage';
 import TakeSurveyPage from './pages/TakeSurveyPage';
 import MainLayout from './components/layout/MainLayout';
 
-// ─── Placeholder for pages not built yet ─────────────────────
-const PH = ({ name }) => (
-  <div style={{
-    minHeight: '100vh', display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center',
-    fontFamily: 'monospace', background: '#f5f0e8'
-  }}>
-    <div style={{
-      background: 'white', border: '2px solid #0f0e0c',
-      borderRadius: 8, padding: '40px 60px', textAlign: 'center'
-    }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>🚧</div>
-      <h2 style={{ fontSize: 24, marginBottom: 8 }}>{name}</h2>
-      <p style={{ color: '#888', marginBottom: 24 }}>This page is coming soon.</p>
-      <a href="/dashboard" style={{
-        padding: '10px 24px', background: '#0f0e0c', color: 'white',
-        textDecoration: 'none', borderRadius: 4, fontSize: 13
-      }}>← Dashboard</a>
-    </div>
-  </div>
-);
-
-const LandingPage         = () => <PH name="Landing Page" />;
-const RegisterPage        = () => <PH name="Register" />;
-const ForgotPasswordPage  = () => <PH name="Forgot Password" />;
-const ResetPasswordPage   = () => <PH name="Reset Password" />;
-const SurveysListPage     = () => <PH name="My Surveys" />;
-const CreateSurveyPage    = () => <PH name="Create Survey" />;
-const SurveyBuilderPage   = () => <PH name="Survey Builder" />;
-const SurveyDetailPage    = () => <PH name="Survey Detail" />;
-const SurveyResponsesPage = () => <PH name="Responses" />;
-const AnalyticsPage       = () => <PH name="Analytics" />;
-const ExplorePage         = () => <PH name="Explore" />;
-const ProfilePage         = () => <PH name="Profile" />;
-const NotFoundPage        = () => <PH name="404 — Not Found" />;
+// pages we just created
+import LandingPage from './pages/LandingPage';
+import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import SurveysListPage from './pages/SurveysListPage';
+import CreateSurveyPage from './pages/CreateSurveyPage';
+import SurveyBuilderPage from './pages/SurveyBuilderPage';
+import SurveyDetailPage from './pages/SurveyDetailPage';
+import SurveyResponsesPage from './pages/SurveyResponsesPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import ExplorePage from './pages/ExplorePage';
+import ProfilePage from './pages/ProfilePage';
+import NotFoundPage from './pages/NotFoundPage';
 
 // ─── Route Guards ─────────────────────────────────────────────
 const PrivateRoute = ({ children }) => {
