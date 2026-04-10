@@ -1,0 +1,40 @@
+services:
+  # Backend API Service
+  - type: web
+    name: survey-backend
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false  # Set in Render dashboard
+      - key: JWT_SECRET
+        sync: false  # Set in Render dashboard
+      - key: JWT_REFRESH_SECRET
+        sync: false  # Set in Render dashboard
+      - key: CLIENT_URL
+        value: https://survey-frontend.onrender.com  # Update with your frontend URL
+      - key: PORT
+        value: 5000
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USER
+        sync: false  # Set in Render dashboard
+      - key: EMAIL_PASS
+        sync: false  # Set in Render dashboard
+
+  # Frontend React App Service
+  - type: static
+    name: survey-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://survey-backend.onrender.com/api  # Update with your backend URL
