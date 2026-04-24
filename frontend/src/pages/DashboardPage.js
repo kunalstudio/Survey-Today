@@ -2,65 +2,133 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSurveys } from '../hooks';
+import { surveyAPI } from '../api';
 
 const DashboardPage = () => {
   const { user } = useAuth();
-  const { surveys, loading } = useSurveys();
+  const { surveys, loading, refetch } = useSurveys();
 
   const stats = {
-    total: surveys.length,
-    active: surveys.filter(s => s.status === 'active').length,
-    draft: surveys.filter(s => s.status === 'draft').length,
+    total:          surveys.length,
+    active:         surveys.filter(s => s.status === 'active').length,
+    draft:          surveys.filter(s => s.status === 'draft').length,
     totalResponses: surveys.reduce((sum, s) => sum + (s.stats?.totalResponses || 0), 0),
   };
+
+  const handlePublish = async (id) => {
+    try { await surveyAPI.publish(id); refetch(); }
+    catch (err) { alert(err.response?.data?.message || 'Failed to publish'); }
+  };
+
+  const recentSurveys = surveys.slice(0, 6);
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <h1>Dashboard</h1>
-          <p className="text-muted">Welcome back, {user?.name}</p>
+          <p className="text-muted">Welcome back, {user?.name} 👋</p>
         </div>
         <Link to="/surveys/new" className="btn btn-primary">+ New Survey</Link>
       </div>
 
-      {/* Stats */}
-      <div className="stats-grid">
-        <div className="stat-card"><div className="stat-value">{stats.total}</div><div className="stat-label">Total Surveys</div></div>
-        <div className="stat-card"><div className="stat-value">{stats.active}</div><div className="stat-label">Active</div></div>
-        <div className="stat-card"><div className="stat-value">{stats.draft}</div><div className="stat-label">Drafts</div></div>
-        <div className="stat-card"><div className="stat-value">{stats.totalResponses}</div><div className="stat-label">Total Responses</div></div>
+      {/* Stat cards */}
+      <div className="stats-grid" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
+        <div className="stat-card">
+          <div className="stat-icon">📋</div>
+          <div className="stat-value">{stats.total}</div>
+          <div className="stat-label">Total Surveys</div>
+        </div>
+        <div className="stat-card stat-card-green">
+          <div className="stat-icon">✅</div>
+          <div className="stat-value" style={{color:'#059669'}}>{stats.active}</div>
+          <div className="stat-label">Active</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">✏️</div>
+          <div className="stat-value" style={{color:'#d97706'}}>{stats.draft}</div>
+          <div className="stat-label">Drafts</div>
+        </div>
+        <div className="stat-card stat-card-purple">
+          <div className="stat-icon">📊</div>
+          <div className="stat-value" style={{color:'#7c3aed'}}>{stats.totalResponses}</div>
+          <div className="stat-label">Total Responses</div>
+        </div>
       </div>
 
-      {/* Recent Surveys */}
+      {/* Recent surveys */}
       <div className="section">
-        <h2>Recent Surveys</h2>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+          <h2>Recent Surveys</h2>
+          <Link to="/surveys" className="btn btn-ghost btn-sm">View all →</Link>
+        </div>
+
         {loading ? (
-          <p>Loading...</p>
-        ) : surveys.length === 0 ? (
+          <div className="loading-rows">
+            <div className="skeleton-row" /><div className="skeleton-row" /><div className="skeleton-row" />
+          </div>
+        ) : recentSurveys.length === 0 ? (
           <div className="empty-state">
             <p>No surveys yet.</p>
             <Link to="/surveys/new" className="btn btn-primary">Create your first survey</Link>
           </div>
         ) : (
           <div className="survey-list">
-            {surveys.slice(0, 5).map((survey) => (
-              <div key={survey._id} className="survey-row">
-                <div className="survey-row-info">
-                  <Link to={`/surveys/${survey._id}/edit`}>{survey.title}</Link>
-                  <span className={`badge badge-${survey.status}`}>{survey.status}</span>
+            {recentSurveys.map((survey) => (
+              <div key={survey._id} className="survey-card">
+                <div className="survey-card-top">
+                  <div className="survey-card-info">
+                    <div className="survey-card-title">
+                      <Link to={`/surveys/${survey._id}/edit`}>{survey.title}</Link>
+                      <span className={`badge badge-${survey.status}`}>{survey.status}</span>
+                    </div>
+                    <div className="survey-card-meta">
+                      <span>📊 {survey.stats?.totalResponses || 0} responses</span>
+                      <span>❓ {survey.questions?.length || 0} questions</span>
+                      <span>🕒 {new Date(survey.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="survey-row-meta">
-                  <span>{survey.stats?.totalResponses || 0} responses</span>
-                  <Link to={`/surveys/${survey._id}/analytics`} className="btn btn-sm">Analytics</Link>
+                <div className="survey-card-actions">
+                  <Link to={`/surveys/${survey._id}/edit`} className="btn btn-sm btn-outline">✏ Edit</Link>
+                  <Link to={`/surveys/${survey._id}/analytics`} className="btn btn-sm btn-outline">📊 Analytics</Link>
+                  {survey.status === 'draft' && survey.questions?.length > 0 && (
+                    <button className="btn btn-sm btn-primary" onClick={() => handlePublish(survey._id)}>🚀 Publish</button>
+                  )}
+                  {survey.status === 'active' && (
+                    <button className="btn btn-sm btn-outline"
+                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/surveys/${survey._id}/respond`); }}>
+                      📋 Copy Link
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
-        {surveys.length > 5 && (
-          <Link to="/surveys" className="btn btn-outline">View all surveys →</Link>
-        )}
+      </div>
+
+      {/* Quick actions */}
+      <div className="section">
+        <h2>Quick Actions</h2>
+        <div className="quick-actions">
+          <Link to="/surveys/new" className="quick-action-card">
+            <div className="quick-action-icon">➕</div>
+            <div className="quick-action-label">New Survey</div>
+          </Link>
+          <Link to="/surveys" className="quick-action-card">
+            <div className="quick-action-icon">📋</div>
+            <div className="quick-action-label">My Surveys</div>
+          </Link>
+          <Link to="/explore" className="quick-action-card">
+            <div className="quick-action-icon">🔍</div>
+            <div className="quick-action-label">Explore</div>
+          </Link>
+          <Link to="/profile" className="quick-action-card">
+            <div className="quick-action-icon">👤</div>
+            <div className="quick-action-label">Profile</div>
+          </Link>
+        </div>
       </div>
     </div>
   );
