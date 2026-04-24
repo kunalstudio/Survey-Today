@@ -19,7 +19,7 @@ exports.register = async (req, res, next) => {
     }
 
     const user = await User.create({ name, email, password });
-    sendTokenResponse(user, 201, res, 'Account created successfully');
+    await sendTokenResponse(user, 201, res, 'Account created successfully');
   } catch (error) {
     next(error);
   }
@@ -44,7 +44,7 @@ exports.login = async (req, res, next) => {
       return next(new AppError('Invalid email or password.', 401));
     }
 
-    sendTokenResponse(user, 200, res, 'Logged in successfully');
+    await sendTokenResponse(user, 200, res, 'Logged in successfully');
   } catch (error) {
     next(error);
   }
@@ -139,7 +139,7 @@ exports.resetPassword = async (req, res, next) => {
     user.resetPasswordExpire = undefined;
     await user.save();
 
-    sendTokenResponse(user, 200, res, 'Password reset successfully');
+    await sendTokenResponse(user, 200, res, 'Password reset successfully');
   } catch (error) {
     next(error);
   }

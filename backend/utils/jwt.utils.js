@@ -35,13 +35,13 @@ const verifyRefreshToken = (token) => {
 /**
  * Send tokens as response
  */
-const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
+const sendTokenResponse = async (user, statusCode, res, message = 'Success') => {
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
 
   // Optionally store refresh token in DB (for logout / invalidation)
   user.refreshToken = refreshToken;
-  user.save({ validateBeforeSave: false });
+  await user.save({ validateBeforeSave: false });
 
   res.status(statusCode).json({
     success: true,
