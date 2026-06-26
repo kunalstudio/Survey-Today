@@ -59,6 +59,7 @@ export const surveyAPI = {
   delete: (id) => API.delete(`/surveys/${id}`),
   publish: (id) => API.patch(`/surveys/${id}/publish`),
   close: (id) => API.patch(`/surveys/${id}/close`),
+  archive: (id) => API.patch(`/surveys/${id}/archive`),
   duplicate: (id) => API.post(`/surveys/${id}/duplicate`),
 
   addQuestion: (surveyId, data) => API.post(`/surveys/${surveyId}/questions`, data),
@@ -78,6 +79,10 @@ export const responseAPI = {
     API.post(`/surveys/${surveyId}/responses/${responseId}/submit`, { answers }, {
       headers: { 'x-session-token': sessionToken },
     }),
+  abandon: (surveyId, responseId, sessionToken) =>
+    API.patch(`/surveys/${surveyId}/responses/${responseId}/abandon`, {}, {
+      headers: { 'x-session-token': sessionToken },
+    }),
   getAll: (surveyId, params) => API.get(`/surveys/${surveyId}/responses`, { params }),
   delete: (surveyId, responseId) => API.delete(`/surveys/${surveyId}/responses/${responseId}`),
 };
@@ -87,6 +92,7 @@ export const analyticsAPI = {
   summary: (surveyId) => API.get(`/surveys/${surveyId}/analytics/summary`),
   questions: (surveyId) => API.get(`/surveys/${surveyId}/analytics/questions`),
   exportCSV: (surveyId) => API.get(`/surveys/${surveyId}/analytics/export`, { responseType: 'blob' }),
+  exportJSON: (surveyId) => API.get(`/surveys/${surveyId}/analytics/export-json`),
 };
 
 // ─── Users ────────────────────────────────────────────────────
@@ -98,3 +104,4 @@ export const userAPI = {
 };
 
 export default API;
+

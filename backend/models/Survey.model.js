@@ -100,6 +100,14 @@ const surveySchema = new mongoose.Schema(
 // Index for fast queries
 surveySchema.index({ creator: 1, status: 1 });
 surveySchema.index({ status: 1, 'settings.isPublic': 1 });
+surveySchema.index({ creator: 1, createdAt: -1 }); // For dashboard sorts
+surveySchema.index({ 'stats.totalResponses': -1 });  // For popularity sort
+// Full-text search index with relevance weights
+// title hits are weighted 10×, description 3×
+surveySchema.index(
+  { title: 'text', description: 'text' },
+  { weights: { title: 10, description: 3 }, name: 'survey_text_idx' }
+);
 // `slug` has `unique: true` on the field above, which creates an index.
 // Avoid declaring the same index twice to prevent duplicate-index warnings.
 

@@ -2,14 +2,24 @@ const Survey = require('../models/Survey.model');
 const Response = require('../models/Response.model');
 const AppError = require('../middleware/AppError');
 
+// ─── Allowed update fields (whitelist) ────────────────────────
+const ALLOWED_UPDATE_FIELDS = [
+  'title', 'description', 'settings', 'expiresAt',
+];
+const ALLOWED_SETTINGS_FIELDS = [
+  'isPublic', 'allowAnonymous', 'requireLogin', 'oneResponsePerUser',
+  'showProgressBar', 'shuffleQuestions', 'confirmationMessage', 'redirectUrl',
+];
+
 /**
  * @desc    Get all surveys (public + user's own)
  * @route   GET /api/surveys
  * @access  Public / Private
+ * @query   page, limit, status, search, sortBy (newest|popular|relevance)
  */
 exports.getSurveys = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, status, search } = req.query;
+    const { page = 1, limit = 10, status, search, sortBy = 'newest' } = req.query;
     const skip = (page - 1) * limit;
 
     let query = {};
@@ -24,17 +34,35 @@ exports.getSurveys = async (req, res, next) => {
       query.status = 'active';
     }
 
-    if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-      ];
+    // ── Full-text search ($text) vs. fallback $regex ───────────
+    let projection = {};
+    let sortOption = {};
+
+    if (search && search.trim()) {
+      // Use MongoDB full-text index for relevance scoring
+      query.$text = { $search: search.trim() };
+      projection = { score: { $meta: 'textScore' } };
+
+      // Sort by relevance unless caller explicitly requests something else
+      if (sortBy === 'relevance' || sortBy === 'newest') {
+        sortOption = { score: { $meta: 'textScore' } };
+      } else if (sortBy === 'popular') {
+        sortOption = { 'stats.totalResponses': -1 };
+      }
+    } else {
+      // No search term — use regular sort
+      if (sortBy === 'popular') {
+        sortOption = { 'stats.totalResponses': -1 };
+      } else {
+        // Default: newest first
+        sortOption = { createdAt: -1 };
+      }
     }
 
     const [surveys, total] = await Promise.all([
-      Survey.find(query)
+      Survey.find(query, projection)
         .populate('creator', 'name email avatar')
-        .sort({ createdAt: -1 })
+        .sort(sortOption)
         .skip(skip)
         .limit(Number(limit))
         .lean(),
@@ -47,6 +75,7 @@ exports.getSurveys = async (req, res, next) => {
       total,
       pages: Math.ceil(total / limit),
       currentPage: Number(page),
+      hasNextPage: Number(page) < Math.ceil(total / limit),
       surveys,
     });
   } catch (error) {
@@ -99,7 +128,7 @@ exports.createSurvey = async (req, res, next) => {
 };
 
 /**
- * @desc    Update a survey
+ * @desc    Update a survey (whitelisted fields only)
  * @route   PUT /api/surveys/:id
  * @access  Private (owner only)
  */
@@ -112,15 +141,34 @@ exports.updateSurvey = async (req, res, next) => {
       return next(new AppError('Not authorized to update this survey.', 403));
     }
 
-    // Can't edit active/closed surveys (only settings)
+    // Can't edit questions of active/closed surveys
     if (survey.status === 'active' && req.body.questions) {
       return next(new AppError('Cannot edit questions of a live survey. Close it first.', 400));
     }
 
-    // Prevent changing creator
-    delete req.body.creator;
+    // ── Build a safe update object (whitelist approach) ────────
+    const updates = {};
 
-    survey = await Survey.findByIdAndUpdate(req.params.id, req.body, {
+    ALLOWED_UPDATE_FIELDS.forEach((field) => {
+      if (field === 'settings' && req.body.settings) {
+        // Merge settings sub-fields safely
+        updates.settings = { ...survey.settings.toObject() };
+        ALLOWED_SETTINGS_FIELDS.forEach((sf) => {
+          if (req.body.settings[sf] !== undefined) {
+            updates.settings[sf] = req.body.settings[sf];
+          }
+        });
+      } else if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    // Allow question edits only if status is draft
+    if (req.body.questions && survey.status === 'draft') {
+      updates.questions = req.body.questions;
+    }
+
+    survey = await Survey.findByIdAndUpdate(req.params.id, updates, {
       new: true,
       runValidators: true,
     });
@@ -199,6 +247,31 @@ exports.closeSurvey = async (req, res, next) => {
 };
 
 /**
+ * @desc    Archive a closed survey
+ * @route   PATCH /api/surveys/:id/archive
+ * @access  Private (owner only)
+ */
+exports.archiveSurvey = async (req, res, next) => {
+  try {
+    const survey = await Survey.findById(req.params.id);
+    if (!survey) return next(new AppError('Survey not found.', 404));
+    if (!survey.creator.equals(req.user._id) && req.user.role !== 'admin') {
+      return next(new AppError('Not authorized.', 403));
+    }
+    if (survey.status !== 'closed') {
+      return next(new AppError('Only closed surveys can be archived.', 400));
+    }
+
+    survey.status = 'archived';
+    await survey.save();
+
+    res.json({ success: true, message: 'Survey archived.', survey });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @desc    Duplicate a survey as a new draft
  * @route   POST /api/surveys/:id/duplicate
  * @access  Private
@@ -217,6 +290,17 @@ exports.duplicateSurvey = async (req, res, next) => {
     duplicateData.title = `${original.title} (Copy)`;
     duplicateData.status = 'draft';
     duplicateData.creator = req.user._id;
+
+    // Strip sub-document _ids so Mongoose generates fresh ones
+    if (duplicateData.questions) {
+      duplicateData.questions = duplicateData.questions.map((q) => {
+        const { _id, ...rest } = q;
+        if (rest.options) {
+          rest.options = rest.options.map(({ _id: oid, ...opt }) => opt);
+        }
+        return rest;
+      });
+    }
 
     const duplicate = await Survey.create(duplicateData);
     res.status(201).json({ success: true, survey: duplicate });

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useSurveys } from '../hooks';
+import { useSurveys, useDebounce } from '../hooks';
 import { surveyAPI } from '../api';
 
-const STATUS_FILTERS = ['all', 'draft', 'active', 'closed'];
+const STATUS_FILTERS = ['all', 'draft', 'active', 'closed', 'archived'];
 
 const SurveysListPage = () => {
   const navigate = useNavigate();
@@ -11,9 +11,12 @@ const SurveysListPage = () => {
   const [search, setSearch] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
+  // Debounce search — fires API only 400ms after user stops typing
+  const debouncedSearch = useDebounce(search, 400);
+
   const params = {};
   if (statusFilter !== 'all') params.status = statusFilter;
-  if (search) params.search = search;
+  if (debouncedSearch) params.search = debouncedSearch;
 
   const { surveys, loading, error, refetch } = useSurveys(params);
 

@@ -37,6 +37,11 @@ exports.startResponse = async (req, res, next) => {
       },
     });
 
+    // Increment totalResponses when session starts
+    await Survey.findByIdAndUpdate(req.params.surveyId, {
+      $inc: { 'stats.totalResponses': 1 },
+    });
+
     res.status(201).json({
       success: true,
       sessionToken: response.sessionToken,
@@ -61,6 +66,7 @@ exports.saveAnswers = async (req, res, next) => {
 
     if (!response) return next(new AppError('Response session not found or invalid token.', 404));
     if (response.status === 'completed') return next(new AppError('This response has already been submitted.', 400));
+    if (response.status === 'abandoned') return next(new AppError('This response session was abandoned.', 400));
 
     // Merge answers (overwrite existing answers for same questionId)
     const { answers } = req.body;
@@ -90,6 +96,8 @@ exports.saveAnswers = async (req, res, next) => {
 exports.submitResponse = async (req, res, next) => {
   try {
     const survey = await Survey.findById(req.params.surveyId);
+    if (!survey) return next(new AppError('Survey not found.', 404));
+
     const response = await Response.findOne({
       _id: req.params.responseId,
       sessionToken: req.headers['x-session-token'],
@@ -97,6 +105,7 @@ exports.submitResponse = async (req, res, next) => {
 
     if (!response) return next(new AppError('Response session not found.', 404));
     if (response.status === 'completed') return next(new AppError('Already submitted.', 400));
+    if (response.status === 'abandoned') return next(new AppError('This session was abandoned.', 400));
 
     // Validate required questions
     const requiredQuestions = survey.questions.filter((q) => q.required);
@@ -107,9 +116,9 @@ exports.submitResponse = async (req, res, next) => {
       return next(new AppError(`Please answer all required questions. Missing: ${missingRequired.map((q) => q.text).join(', ')}`, 400));
     }
 
-    // Submit
+    // Merge any final answers from submission payload
     const { answers } = req.body;
-    if (answers) {
+    if (answers && Array.isArray(answers)) {
       answers.forEach((newAnswer) => {
         const idx = response.answers.findIndex((a) => a.questionId.toString() === newAnswer.questionId);
         if (idx >= 0) response.answers[idx] = newAnswer;
@@ -118,11 +127,26 @@ exports.submitResponse = async (req, res, next) => {
     }
 
     response.status = 'completed';
-    await response.save();
+    await response.save(); // pre-save hook calculates completionTime + submittedAt
 
-    // Update survey stats
+    // ── Update denormalized stats ─────────────────────────────
+    // Recalculate averageCompletionTime using aggregation
+    const [avgResult] = await Response.aggregate([
+      {
+        $match: {
+          survey: survey._id,
+          status: 'completed',
+          completionTime: { $exists: true, $gt: 0 },
+        },
+      },
+      { $group: { _id: null, avg: { $avg: '$completionTime' }, count: { $sum: 1 } } },
+    ]);
+
     await Survey.findByIdAndUpdate(req.params.surveyId, {
-      $inc: { 'stats.totalResponses': 1, 'stats.completedResponses': 1 },
+      $inc: { 'stats.completedResponses': 1 },
+      $set: {
+        'stats.averageCompletionTime': avgResult ? Math.round(avgResult.avg) : 0,
+      },
     });
 
     res.json({
@@ -130,6 +154,35 @@ exports.submitResponse = async (req, res, next) => {
       message: survey.settings.confirmationMessage,
       redirectUrl: survey.settings.redirectUrl,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Abandon a response session
+ * @route   PATCH /api/surveys/:surveyId/responses/:responseId/abandon
+ * @access  Public (via sessionToken)
+ */
+exports.abandonResponse = async (req, res, next) => {
+  try {
+    const response = await Response.findOne({
+      _id: req.params.responseId,
+      sessionToken: req.headers['x-session-token'],
+    });
+
+    if (!response) return next(new AppError('Response session not found.', 404));
+    if (response.status === 'completed') return next(new AppError('Cannot abandon an already-completed response.', 400));
+
+    response.status = 'abandoned';
+    await response.save();
+
+    // Decrement totalResponses since this was never completed
+    await Survey.findByIdAndUpdate(req.params.surveyId, {
+      $inc: { 'stats.totalResponses': -1 },
+    });
+
+    res.json({ success: true, message: 'Response session marked as abandoned.' });
   } catch (error) {
     next(error);
   }
@@ -178,10 +231,40 @@ exports.deleteResponse = async (req, res, next) => {
     if (!survey) return next(new AppError('Survey not found.', 404));
     if (!survey.creator.equals(req.user._id)) return next(new AppError('Not authorized.', 403));
 
-    await Response.findByIdAndDelete(req.params.responseId);
-    await Survey.findByIdAndUpdate(req.params.surveyId, {
-      $inc: { 'stats.totalResponses': -1, 'stats.completedResponses': -1 },
-    });
+    // Fetch before deleting so we know the status
+    const response = await Response.findById(req.params.responseId);
+    if (!response) return next(new AppError('Response not found.', 404));
+
+    const wasCompleted = response.status === 'completed';
+    const wasStarted   = response.status !== 'abandoned'; // started but not completed = counted in totalResponses
+
+    await response.deleteOne();
+
+    // Only decrement counters that were actually incremented
+    const statUpdate = {};
+    if (wasStarted)    statUpdate['stats.totalResponses']    = -1;
+    if (wasCompleted)  statUpdate['stats.completedResponses'] = -1;
+
+    if (Object.keys(statUpdate).length > 0) {
+      await Survey.findByIdAndUpdate(req.params.surveyId, { $inc: statUpdate });
+    }
+
+    // Recalculate averageCompletionTime after deletion
+    if (wasCompleted) {
+      const [avgResult] = await Response.aggregate([
+        {
+          $match: {
+            survey: survey._id,
+            status: 'completed',
+            completionTime: { $exists: true, $gt: 0 },
+          },
+        },
+        { $group: { _id: null, avg: { $avg: '$completionTime' } } },
+      ]);
+      await Survey.findByIdAndUpdate(req.params.surveyId, {
+        $set: { 'stats.averageCompletionTime': avgResult ? Math.round(avgResult.avg) : 0 },
+      });
+    }
 
     res.json({ success: true, message: 'Response deleted.' });
   } catch (error) {
