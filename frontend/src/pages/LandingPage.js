@@ -21,7 +21,7 @@ const LandingPage = () => (
   <div className="landing-page">
     {/* Nav */}
     <nav className="landing-nav">
-      <div className="landing-logo">📋 SurveyOS</div>
+      <div className="landing-logo">📋 Survey Today</div>
       <div className="landing-nav-links">
         <Link to="/explore" className="landing-nav-link">Explore</Link>
         <Link to="/login"    className="btn btn-ghost btn-sm">Log In</Link>
@@ -112,8 +112,8 @@ const LandingPage = () => (
     {/* Footer */}
     <footer className="landing-footer">
       <div className="landing-container">
-        <span className="landing-logo">📋 SurveyOS</span>
-        <span className="text-muted">© {new Date().getFullYear()} SurveyOS · Built with ❤ on MERN</span>
+        <span className="landing-logo">📋 Survey Today</span>
+        <span className="text-muted">© {new Date().getFullYear()} Survey Today · Built with ❤ on MERN</span>
       </div>
     </footer>
   </div>

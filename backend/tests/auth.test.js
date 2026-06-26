@@ -5,7 +5,7 @@ const User = require('../models/User.model');
 
 // Test database
 beforeAll(async () => {
-  await mongoose.connect(process.env.MONGO_URI_TEST || 'mongodb://localhost/surveyos_test');
+  await mongoose.connect(process.env.MONGO_URI_TEST || 'mongodb://localhost/surveytoday_test');
 });
 
 afterAll(async () => {

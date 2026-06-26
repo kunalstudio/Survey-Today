@@ -34,7 +34,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
   const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
   await sendEmail({
     to: email,
-    subject: 'SurveyOS - Password Reset Request',
+    subject: 'Survey Today - Password Reset Request',
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
         <h2>Reset Your Password</h2>

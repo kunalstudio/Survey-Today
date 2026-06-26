@@ -30,7 +30,7 @@ const RegisterPage = () => {
     <div className="auth-page">
       <div className="auth-card">
         <h1>Create account</h1>
-        <p className="auth-subtitle">Sign up for a free SurveyOS account</p>
+        <p className="auth-subtitle">Sign up for a free Survey Today account</p>
 
         {error && <div className="alert alert-error">{error}</div>}
 

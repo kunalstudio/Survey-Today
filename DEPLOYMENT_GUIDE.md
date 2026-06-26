@@ -60,7 +60,7 @@ EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=[Your Gmail]
 EMAIL_PASS=[Gmail App Password]
-EMAIL_FROM=SurveyOS <noreply@surveyos.com>
+EMAIL_FROM=Survey Today <noreply@surveytoday.com>
 ```
 
 #### 4. **Frontend .env.production**
@@ -116,7 +116,7 @@ The `render.yaml` in your project root can be used for automated deployment:
 ### Backend Health Check
 ```bash
 curl https://your-backend-url/api/health
-# Expected response: {"success":true,"message":"SurveyOS API is running","env":"production"}
+# Expected response: {"success":true,"message":"Survey Today API is running","env":"production"}
 ```
 
 ### Test API Endpoint
@@ -196,7 +196,7 @@ curl -X POST https://your-backend-url/api/auth/login \
 | EMAIL_PORT | No | 587 |
 | EMAIL_USER | No | your-email@gmail.com |
 | EMAIL_PASS | No | Gmail app password |
-| EMAIL_FROM | No | SurveyOS <noreply@surveyos.com> |
+| EMAIL_FROM | No | Survey Today <noreply@surveytoday.com> |
 
 ### Frontend (.env)
 | Variable | Required | Example |

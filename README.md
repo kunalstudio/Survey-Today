@@ -1,4 +1,4 @@
-# SurveyOS — Full MERN Stack Survey Platform
+# Survey Today — Full MERN Stack Survey Platform
 
 ## Project Structure
 
@@ -189,7 +189,7 @@ Then deploy `backend/` + `frontend/build/` to your server with PM2:
 
 ```bash
 npm install -g pm2
-pm2 start server.js --name surveyos
+pm2 start server.js --name surveytoday
 pm2 startup && pm2 save
 ```
 

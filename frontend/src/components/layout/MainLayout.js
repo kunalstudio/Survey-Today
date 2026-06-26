@@ -28,7 +28,7 @@ const MainLayout = () => {
       <aside className="sidebar">
         {/* Logo */}
         <div className="sidebar-logo">
-          <Link to="/dashboard">📋 SurveyOS</Link>
+          <Link to="/dashboard">📋 Survey Today</Link>
         </div>
 
         {/* Active surveys pill */}

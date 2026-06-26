@@ -45,7 +45,7 @@ EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=[Your Gmail]
 EMAIL_PASS=[Gmail App Password]
-EMAIL_FROM=SurveyOS <noreply@surveyos.com>
+EMAIL_FROM=Survey Today <noreply@surveytoday.com>
 ```
 
 6. Click "Create Web Service"
@@ -84,7 +84,7 @@ REACT_APP_API_URL=https://survey-backend.onrender.com/api
 #### Health Check
 ```bash
 curl https://survey-backend.onrender.com/api/health
-# Should return: {"success":true,"message":"SurveyOS API is running","env":"production"}
+# Should return: {"success":true,"message":"Survey Today API is running","env":"production"}
 ```
 
 #### Test Login (optional)
