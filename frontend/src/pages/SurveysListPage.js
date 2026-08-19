@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useSurveys, useDebounce } from '../hooks';
+import { useSurveys, useDebounce, useDocumentTitle } from '../hooks';
 import { surveyAPI } from '../api';
 
 const STATUS_FILTERS = ['all', 'draft', 'active', 'closed', 'archived'];
 
 const SurveysListPage = () => {
+  useDocumentTitle('My Surveys');
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');

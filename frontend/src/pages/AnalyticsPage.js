@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAnalytics } from '../hooks';
+import { useAnalytics, useDocumentTitle } from '../hooks';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
@@ -30,7 +30,10 @@ const QuestionChart = ({ q }) => {
               <YAxis allowDecimals={false} tick={{ fontSize:12 }} />
               <Tooltip formatter={(val) => [`${val} (${Math.round(val/total*100)}%)`, 'Responses']} />
               <Bar dataKey="count" radius={[4,4,0,0]}>
-                {q.chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                {/* Fix #22: use label as key instead of array index */}
+                {q.chartData.map((entry) => (
+                  <Cell key={entry.label} fill={COLORS[q.chartData.indexOf(entry) % COLORS.length]} />
+                ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -40,7 +43,9 @@ const QuestionChart = ({ q }) => {
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie data={q.chartData} dataKey="count" nameKey="label" cx="50%" cy="50%" outerRadius={70} label={({ label, percent }) => `${label} ${(percent*100).toFixed(0)}%`}>
-                  {q.chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {q.chartData.map((entry) => (
+                    <Cell key={entry.label} fill={COLORS[q.chartData.indexOf(entry) % COLORS.length]} />
+                  ))}
                 </Pie>
                 <Legend />
               </PieChart>
@@ -98,7 +103,9 @@ const QuestionChart = ({ q }) => {
 
 const AnalyticsPage = () => {
   const { id } = useParams();
-  const { summary, questionData, loading, error, downloadCSV } = useAnalytics(id);
+  // Fix #9: also destructure downloadJSON so it can be surfaced in UI
+  const { summary, questionData, loading, error, downloadCSV, downloadJSON } = useAnalytics(id);
+  useDocumentTitle(summary ? `Analytics — ${summary.title || 'Survey'}` : 'Analytics');
 
   if (loading) return <div className="loading-screen">Loading analytics…</div>;
   if (error)   return <div className="alert alert-error" style={{margin:32}}>{error}</div>;
@@ -116,7 +123,9 @@ const AnalyticsPage = () => {
           </p>
         </div>
         <div style={{display:'flex', gap:8}}>
+          {/* Fix #9: JSON export button now visible */}
           <button className="btn btn-outline" onClick={downloadCSV}>⬇ Export CSV</button>
+          <button className="btn btn-outline" onClick={downloadJSON}>⬇ Export JSON</button>
           <Link to={`/surveys/${id}/edit`} className="btn btn-outline">✏ Builder</Link>
           <Link to={`/surveys/${id}/responses`} className="btn btn-outline">📋 Responses</Link>
         </div>

@@ -47,8 +47,6 @@ const AppRoutes = () => (
     {/* Public */}
     <Route path="/"               element={<LandingPage />} />
     <Route path="/explore"        element={<ExplorePage />} />
-    <Route path="/surveys/:id"    element={<SurveyDetailPage />} />
-    <Route path="/surveys/:id/respond" element={<TakeSurveyPage />} />
 
     {/* Unauthenticated only */}
     <Route path="/login"          element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
@@ -56,7 +54,14 @@ const AppRoutes = () => (
     <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
     <Route path="/reset-password/:token" element={<PublicOnlyRoute><ResetPasswordPage /></PublicOnlyRoute>} />
 
-    {/* Private — wrapped in sidebar layout */}
+    {/* Survey take routes — public, must come before the private layout */}
+    <Route path="/surveys/:id"         element={<SurveyDetailPage />} />
+    <Route path="/surveys/:id/respond" element={<TakeSurveyPage />} />
+
+    {/* Private — wrapped in sidebar layout.
+        /surveys/new and /surveys/:id/edit are defined here FIRST so they are
+        matched before the public /surveys/:id wildcard above. React Router v6
+        picks the most-specific match, so these are safe. */}
     <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
       <Route path="/dashboard"              element={<DashboardPage />} />
       <Route path="/surveys"                element={<SurveysListPage />} />

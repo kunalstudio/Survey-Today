@@ -1,10 +1,11 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useSurvey } from '../hooks';
+import { useSurvey, useDocumentTitle } from '../hooks';
 
 const SurveyDetailPage = () => {
   const { id } = useParams();
   const { survey, loading, error } = useSurvey(id);
+  useDocumentTitle(survey ? survey.title : 'Survey');
 
   if (loading) return <div className="loading-screen">Loading survey…</div>;
   if (error)   return (

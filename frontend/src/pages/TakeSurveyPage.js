@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSurvey, useSurveyResponse } from '../hooks';
+import { useSurvey, useSurveyResponse, useDocumentTitle } from '../hooks';
 
 const TakeSurveyPage = () => {
   const { id } = useParams();
@@ -10,26 +10,36 @@ const TakeSurveyPage = () => {
     responseId, answers, currentIndex, setCurrentIndex,
     submitted, loading, error, start, setAnswer, submit,
   } = useSurveyResponse(id);
+  useDocumentTitle(survey ? survey.title : 'Take Survey');
 
-  const [started, setStarted] = useState(false);
-  const [confirmMessage, setConfirmMessage] = useState('');
+  // Fix #10: removed unused `started` state
+  // Fix #15: track whether the session-start call is in-flight
+  const [sessionStarting, setSessionStarting] = React.useState(false);
+  const [confirmMessage, setConfirmMessage] = React.useState('');
 
+  // Fix #2: complete dependency array; use stable `start` ref via useCallback in hook
   useEffect(() => {
-    if (survey && !responseId) {
-      start().then(() => setStarted(true));
+    if (survey && !responseId && !sessionStarting) {
+      setSessionStarting(true);
+      start().finally(() => setSessionStarting(false));
     }
-  }, [survey]);
+  }, [survey, responseId, start, sessionStarting]);
 
   if (surveyLoading) return <div className="loading-screen">Loading survey...</div>;
   if (surveyError) return <div className="error-page"><h2>Survey not available</h2><p>{surveyError}</p></div>;
   if (!survey) return null;
+
+  // Fix #15: show a spinner while the response session is being started
+  if (sessionStarting || (!responseId && !surveyError)) {
+    return <div className="loading-screen">Starting survey session...</div>;
+  }
 
   if (submitted) {
     return (
       <div className="survey-complete">
         <div className="complete-icon">✓</div>
         <h2>Thank you!</h2>
-        <p>{confirmMessage || survey.settings?.confirmationMessage}</p>
+        <p>{confirmMessage || survey.settings?.confirmationMessage || 'Your response has been recorded.'}</p>
         <button className="btn btn-outline" onClick={() => navigate('/explore')}>
           Explore more surveys
         </button>
@@ -37,19 +47,37 @@ const TakeSurveyPage = () => {
     );
   }
 
-  const questions = survey.questions?.sort((a, b) => a.order - b.order) || [];
+  const questions = survey.questions?.slice().sort((a, b) => a.order - b.order) || [];
+
+  // Fix #11: guard for surveys with no questions
+  if (questions.length === 0) {
+    return (
+      <div className="survey-complete">
+        <div className="complete-icon" style={{ fontSize: 48 }}>📋</div>
+        <h2>No Questions Yet</h2>
+        <p>This survey doesn't have any questions yet.</p>
+        <button className="btn btn-outline" onClick={() => navigate('/explore')}>
+          Browse other surveys
+        </button>
+      </div>
+    );
+  }
+
   const currentQuestion = questions[currentIndex];
   const progress = Math.round(((currentIndex) / questions.length) * 100);
   const isLast = currentIndex === questions.length - 1;
 
   const handleNext = () => {
-    if (currentQuestion.required && !answers[currentQuestion._id]) {
+    // Fix #4: properly validate required checkbox (empty array is truthy)
+    const answer = answers[currentQuestion._id];
+    const isEmpty = !answer || (Array.isArray(answer) && answer.length === 0);
+    if (currentQuestion.required && isEmpty) {
       alert('This question is required.');
       return;
     }
     if (isLast) {
       submit().then((data) => {
-        if (data) setConfirmMessage(data.message);
+        if (data) setConfirmMessage(data.message || '');
       });
     } else {
       setCurrentIndex(currentIndex + 1);
@@ -119,6 +147,18 @@ const TakeSurveyPage = () => {
             <button className={`yn-btn ${value === 'Yes' ? 'active' : ''}`} onClick={() => onChange('Yes')}>Yes</button>
             <button className={`yn-btn ${value === 'No' ? 'active' : ''}`} onClick={() => onChange('No')}>No</button>
           </div>
+        );
+
+      // Fix #3: add date question type
+      case 'date':
+        return (
+          <input
+            type="date"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="form-input"
+            style={{ maxWidth: 240 }}
+          />
         );
 
       default:

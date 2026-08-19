@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useSurvey } from '../hooks';
+import { useSurvey, useDocumentTitle } from '../hooks';
 import { surveyAPI } from '../api';
 
 const QUESTION_TYPES = [
@@ -21,6 +21,7 @@ const hasScale  = (type) => ['scale', 'rating'].includes(type);
 const SurveyBuilderPage = () => {
   const { id } = useParams();
   const { survey, setSurvey, loading, error } = useSurvey(id);
+  useDocumentTitle(survey ? `Builder — ${survey.title}` : 'Survey Builder');
 
   const [activeTab,     setActiveTab]     = useState('questions');
   const [showModal,     setShowModal]     = useState(false);
@@ -30,14 +31,19 @@ const SurveyBuilderPage = () => {
   const [saving,        setSaving]        = useState(false);
   const [flash,         setFlash]         = useState('');
 
+  // Fix #7: track which survey id the settingsForm was initialized for,
+  // so navigating to a different survey resets the form correctly.
+  const settingsSurveyId = useRef(null);
+
   const showFlash = useCallback((msg) => {
     setFlash(msg);
     setTimeout(() => setFlash(''), 3000);
   }, []);
 
-  // Init settings form when survey loads
+  // Init (or re-init) settings form when survey loads or survey id changes
   useEffect(() => {
-    if (survey && !settingsForm) {
+    if (survey && settingsSurveyId.current !== survey._id) {
+      settingsSurveyId.current = survey._id;
       setSettingsForm({
         title:       survey.title || '',
         description: survey.description || '',
@@ -45,7 +51,7 @@ const SurveyBuilderPage = () => {
         settings:    { ...survey.settings },
       });
     }
-  }, [survey, settingsForm]);
+  }, [survey]);
 
   // ── Question actions ──────────────────────────────────────────
   const handleAddQuestion = async (type) => {
@@ -211,10 +217,19 @@ const SurveyBuilderPage = () => {
                 <div className="qcard-actions">
                   {isDraft && (
                     <>
-                      <button className="btn btn-sm btn-outline" onClick={() => editingId === q._id ? cancelEdit() : startEdit(q)}>
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={() => editingId === q._id ? cancelEdit() : startEdit(q)}
+                        aria-label={editingId === q._id ? 'Cancel editing question' : `Edit question ${idx + 1}`}
+                      >
                         {editingId === q._id ? 'Cancel' : '✏ Edit'}
                       </button>
-                      <button className="btn btn-sm btn-danger" onClick={() => deleteQuestion(q._id)} disabled={saving}>✕</button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => deleteQuestion(q._id)}
+                        disabled={saving}
+                        aria-label={`Delete question ${idx + 1}`}
+                      >✕</button>
                     </>
                   )}
                 </div>
@@ -223,7 +238,7 @@ const SurveyBuilderPage = () => {
               {q.description && <div className="qcard-desc">{q.description}</div>}
               {q.options?.length > 0 && (
                 <div className="qcard-options">
-                  {q.options.map((o,i) => <span key={i} className="qcard-option-pill">{o.text}</span>)}
+                  {q.options.map((o,i) => <span key={o._id || i} className="qcard-option-pill">{o.text}</span>)}
                 </div>
               )}
               {hasScale(q.type) && (
@@ -255,7 +270,7 @@ const SurveyBuilderPage = () => {
                       {(editForm.options || []).map((opt, i) => (
                         <div key={i} className="option-edit-row">
                           <input value={opt.text} onChange={e => updateOption(i, e.target.value)} className="form-input" placeholder={`Option ${i+1}`} />
-                          <button className="btn btn-sm btn-ghost" onClick={() => removeOption(i)}>✕</button>
+                          <button className="btn btn-sm btn-ghost" onClick={() => removeOption(i)} aria-label={`Remove option ${i+1}`}>✕</button>
                         </div>
                       ))}
                       <button className="btn btn-sm btn-outline" onClick={addOption} style={{marginTop:8}}>+ Add Option</button>
@@ -366,7 +381,7 @@ const SurveyBuilderPage = () => {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Choose Question Type</h2>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowModal(false)}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowModal(false)} aria-label="Close modal">✕</button>
             </div>
             <div className="type-grid">
               {QUESTION_TYPES.map(({ type, label, icon, desc }) => (

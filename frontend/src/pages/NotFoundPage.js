@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks';
 
 const NotFoundPage = () => {
+  useDocumentTitle('404 — Page Not Found');
   const navigate = useNavigate();
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg,#f5f3ff,#ede9fe)', padding:20 }}>

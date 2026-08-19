@@ -37,7 +37,7 @@ export const useSurveys = (params = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(params)]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(params)]); // eslint-disable-line
 
   useEffect(() => { fetchSurveys(); }, [fetchSurveys]);
 
@@ -73,13 +73,13 @@ export const useInfiniteSurveys = (params = {}) => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [paramsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [paramsKey]); // eslint-disable-line
 
   useEffect(() => {
-    const isReset = prevParamsKey.current !== paramsKey;
+    // Fix #8: removed the unused `isReset` variable — always reset on param change
     prevParamsKey.current = paramsKey;
     fetchPage(1, true);
-  }, [paramsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [paramsKey]); // eslint-disable-line
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasNextPage) fetchPage(page + 1, false);
@@ -204,4 +204,13 @@ export const useSurveyResponse = (surveyId) => {
     responseId, sessionToken, answers, currentIndex, setCurrentIndex,
     submitted, loading, error, start, setAnswer, submit, abandon,
   };
+};
+
+// ─── useDocumentTitle: set page <title> dynamically ──────────
+export const useDocumentTitle = (title) => {
+  useEffect(() => {
+    const prev = document.title;
+    document.title = title ? `${title} — Survey Today` : 'Survey Today';
+    return () => { document.title = prev; };
+  }, [title]);
 };

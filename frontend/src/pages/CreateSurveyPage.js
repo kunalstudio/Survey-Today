@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { surveyAPI } from '../api';
+import { useDocumentTitle } from '../hooks';
 
 const CreateSurveyPage = () => {
+  useDocumentTitle('New Survey');
   const navigate = useNavigate();
   const [form,    setForm]    = useState({ title: '', description: '', isPublic: false, allowAnonymous: true });
   const [error,   setError]   = useState('');

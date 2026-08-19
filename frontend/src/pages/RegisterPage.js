@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useDocumentTitle } from '../hooks';
 
 const RegisterPage = () => {
+  useDocumentTitle('Create Account');
   const { register } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -14,6 +16,11 @@ const RegisterPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Fix #14: client-side min-length check before hitting API
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -68,8 +75,19 @@ const RegisterPage = () => {
               value={form.password}
               onChange={handleChange}
               placeholder="••••••••"
+              minLength={6}
               required
             />
+            {/* Fix #14: password strength hint */}
+            <small className="text-muted" style={{ marginTop: 4, display: 'block' }}>
+              {form.password.length === 0
+                ? 'At least 6 characters required.'
+                : form.password.length < 6
+                ? `${6 - form.password.length} more character${6 - form.password.length !== 1 ? 's' : ''} needed.`
+                : form.password.length < 10
+                ? '✅ Good password.'
+                : '✅ Strong password!'}
+            </small>
           </div>
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? 'Creating...' : 'Sign Up'}

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks';
 
 const FEATURES = [
   { icon: '🛠', title: 'Easy Builder', desc: 'Drag-free question builder with 9 question types: multiple choice, ratings, scales, text, and more.' },
@@ -17,7 +18,9 @@ const STEPS = [
   { num: '04', title: 'Analyze Results', desc: 'View charts and export responses as CSV.' },
 ];
 
-const LandingPage = () => (
+const LandingPage = () => {
+  useDocumentTitle('Build Surveys That People Actually Complete');
+  return (
   <div className="landing-page">
     {/* Nav */}
     <nav className="landing-nav">
@@ -117,6 +120,7 @@ const LandingPage = () => (
       </div>
     </footer>
   </div>
-);
+  );
+};
 
 export default LandingPage;

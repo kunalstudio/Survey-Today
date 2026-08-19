@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../api';
+import { useDocumentTitle } from '../hooks';
 
 const ResetPasswordPage = () => {
+  useDocumentTitle('Reset Password');
   const { token } = useParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
@@ -13,6 +15,11 @@ const ResetPasswordPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Fix #14: client-side min-length check
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
     if (password !== confirm) {
       setError('Passwords do not match');
       return;
@@ -49,8 +56,19 @@ const ResetPasswordPage = () => {
                 name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
                 required
               />
+              {/* Fix #14: strength hint */}
+              <small className="text-muted" style={{ marginTop: 4, display: 'block' }}>
+                {password.length === 0
+                  ? 'At least 6 characters required.'
+                  : password.length < 6
+                  ? `${6 - password.length} more character${6 - password.length !== 1 ? 's' : ''} needed.`
+                  : password.length < 10
+                  ? '✅ Good password.'
+                  : '✅ Strong password!'}
+              </small>
             </div>
             <div className="form-group">
               <label htmlFor="confirm">Confirm password</label>
@@ -62,6 +80,11 @@ const ResetPasswordPage = () => {
                 onChange={(e) => setConfirm(e.target.value)}
                 required
               />
+              {confirm.length > 0 && (
+                <small className="text-muted" style={{ marginTop: 4, display: 'block' }}>
+                  {confirm === password ? '✅ Passwords match.' : '⚠ Passwords do not match.'}
+                </small>
+              )}
             </div>
             <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
               {loading ? 'Saving...' : 'Reset Password'}

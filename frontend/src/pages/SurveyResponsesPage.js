@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { responseAPI, surveyAPI } from '../api';
+import { useDocumentTitle } from '../hooks';
 
 const SurveyResponsesPage = () => {
   const { id } = useParams();
   const [survey,    setSurvey]    = useState(null);
   const [responses, setResponses] = useState([]);
+  useDocumentTitle(survey ? `Responses — ${survey.title}` : 'Responses');
+  // Fix #6: separate initial loading from pagination loading to avoid full-page blank
   const [loading,   setLoading]   = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
   const [error,     setError]     = useState(null);
   const [expanded,  setExpanded]  = useState(null);
   const [msg,       setMsg]       = useState('');
@@ -16,8 +20,8 @@ const SurveyResponsesPage = () => {
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
 
-  const load = async (p = 1) => {
-    setLoading(true);
+  const load = useCallback(async (p = 1, isInitial = false) => {
+    if (isInitial) setLoading(true); else setPageLoading(true);
     try {
       const [surveyRes, responseRes] = await Promise.all([
         surveyAPI.getOne(id),
@@ -30,10 +34,16 @@ const SurveyResponsesPage = () => {
       setError(err.response?.data?.message || 'Failed to load responses');
     } finally {
       setLoading(false);
+      setPageLoading(false);
     }
-  };
+  }, [id]);
 
-  useEffect(() => { load(page); }, [id, page]);  // eslint-disable-line
+  useEffect(() => { load(1, true); }, [load]);
+
+  // When page changes after initial load, do a soft page load (no full-screen spinner)
+  useEffect(() => {
+    if (page > 1) load(page, false);
+  }, [page]); // eslint-disable-line
 
   const handleDelete = async (responseId) => {
     if (!window.confirm('Delete this response?')) return;
@@ -56,7 +66,7 @@ const SurveyResponsesPage = () => {
   if (loading) return <div className="loading-screen">Loading responses…</div>;
   if (error)   return <div className="error-page"><h2>Error</h2><p>{error}</p></div>;
 
-  const questions = survey?.questions?.sort((a,b) => a.order - b.order) || [];
+  const questions = survey?.questions?.slice().sort((a,b) => a.order - b.order) || [];
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
@@ -77,10 +87,11 @@ const SurveyResponsesPage = () => {
 
       {msg && <div className="alert alert-success">{msg}</div>}
 
-      {responses.length === 0 && (
+      {responses.length === 0 && !pageLoading && (
         <div className="empty-state">
           <p>No responses yet.</p>
-          {survey?.status === 'active' && survey?.settings?.isPublic && (
+          {/* Fix #16: show copy link for ALL active surveys, not just public ones */}
+          {survey?.status === 'active' && (
             <button className="btn btn-outline" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/surveys/${id}/respond`); flash('📋 Link copied!'); }}>
               📋 Copy Share Link
             </button>
@@ -88,7 +99,14 @@ const SurveyResponsesPage = () => {
         </div>
       )}
 
-      {responses.length > 0 && (
+      {/* Fix #6: inline spinner when changing pages */}
+      {pageLoading && (
+        <div className="loading-rows">
+          <div className="skeleton-row" /><div className="skeleton-row" /><div className="skeleton-row" />
+        </div>
+      )}
+
+      {responses.length > 0 && !pageLoading && (
         <>
           <div className="response-list">
             {responses.map((r, idx) => (
@@ -108,8 +126,14 @@ const SurveyResponsesPage = () => {
                     {r.answers?.length > 0 && <span className="text-muted">{r.answers.length} answer{r.answers.length!==1?'s':''}</span>}
                   </div>
                   <div style={{display:'flex', gap:8, alignItems:'center'}}>
-                    <button className="btn btn-sm btn-ghost">{expanded === r._id ? '▲ Hide' : '▼ View'}</button>
-                    <button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDelete(r._id); }}>🗑</button>
+                    <button className="btn btn-sm btn-ghost" aria-label={expanded === r._id ? 'Collapse response' : 'Expand response'}>
+                      {expanded === r._id ? '▲ Hide' : '▼ View'}
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={e => { e.stopPropagation(); handleDelete(r._id); }}
+                      aria-label="Delete this response"
+                    >🗑</button>
                   </div>
                 </div>
 
@@ -139,9 +163,9 @@ const SurveyResponsesPage = () => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="pagination">
-              <button className="btn btn-outline btn-sm" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}>← Prev</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1 || pageLoading}>← Prev</button>
               <span className="pagination-info">Page {page} of {totalPages}</span>
-              <button className="btn btn-outline btn-sm" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}>Next →</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages || pageLoading}>Next →</button>
             </div>
           )}
         </>

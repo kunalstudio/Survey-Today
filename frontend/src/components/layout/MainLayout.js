@@ -46,7 +46,9 @@ const MainLayout = () => {
             <NavLink
               key={to}
               to={to}
-              end={to === '/surveys/new' ? false : undefined}
+              // Fix #18: use end=true for exact-match links to prevent
+              // /surveys being active on /surveys/new, /surveys/:id/edit, etc.
+              end={to === '/dashboard' || to === '/surveys' || to === '/explore' || to === '/profile'}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             >
               <span className="nav-icon">{icon}</span>
@@ -69,7 +71,12 @@ const MainLayout = () => {
               <div className="user-email">{user?.email}</div>
             </div>
           </div>
-          <button className="btn btn-ghost btn-sm btn-full" onClick={handleLogout}>
+          {/* Fix #21: aria-label on logout button */}
+          <button
+            className="btn btn-ghost btn-sm btn-full"
+            onClick={handleLogout}
+            aria-label="Log out of your account"
+          >
             ↪ Logout
           </button>
         </div>

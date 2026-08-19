@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useDebounce, useInfiniteSurveys } from '../hooks';
+import { useDebounce, useInfiniteSurveys, useDocumentTitle } from '../hooks';
 
 const SORT_OPTIONS = [
   { value: 'newest',    label: '🕒 Newest' },
@@ -9,6 +9,7 @@ const SORT_OPTIONS = [
 ];
 
 const ExplorePage = () => {
+  useDocumentTitle('Explore Surveys');
   const [search, setSearch]   = useState('');
   const [sortBy, setSortBy]   = useState('newest');
 

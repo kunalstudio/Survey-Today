@@ -1,12 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useSurveys } from '../hooks';
+import { useSurveys, useDocumentTitle } from '../hooks';
 import { surveyAPI } from '../api';
 
 const DashboardPage = () => {
+  useDocumentTitle('Dashboard');
   const { user } = useAuth();
   const { surveys, loading, refetch } = useSurveys();
+  // Fix #12: use flash state instead of alert()
+  const [actionMsg, setActionMsg] = useState('');
+  const [actionErr, setActionErr] = useState('');
+
+  const flash = (msg, isError = false) => {
+    if (isError) { setActionErr(msg); setTimeout(() => setActionErr(''), 3000); }
+    else         { setActionMsg(msg); setTimeout(() => setActionMsg(''), 3000); }
+  };
 
   const stats = {
     total:          surveys.length,
@@ -16,8 +25,15 @@ const DashboardPage = () => {
   };
 
   const handlePublish = async (id) => {
-    try { await surveyAPI.publish(id); refetch(); }
-    catch (err) { alert(err.response?.data?.message || 'Failed to publish'); }
+    try { await surveyAPI.publish(id); refetch(); flash('✅ Survey published!'); }
+    catch (err) { flash(err.response?.data?.message || 'Failed to publish', true); }
+  };
+
+  // Fix #13: add Close action to Dashboard (parity with SurveysListPage)
+  const handleClose = async (id) => {
+    if (!window.confirm('Close this survey? It will stop accepting responses.')) return;
+    try { await surveyAPI.close(id); refetch(); flash('Survey closed'); }
+    catch (err) { flash(err.response?.data?.message || 'Failed to close', true); }
   };
 
   const recentSurveys = surveys.slice(0, 6);
@@ -31,6 +47,9 @@ const DashboardPage = () => {
         </div>
         <Link to="/surveys/new" className="btn btn-primary">+ New Survey</Link>
       </div>
+
+      {actionMsg && <div className="alert alert-success">{actionMsg}</div>}
+      {actionErr && <div className="alert alert-error">{actionErr}</div>}
 
       {/* Stat cards */}
       <div className="stats-grid" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
@@ -96,10 +115,14 @@ const DashboardPage = () => {
                     <button className="btn btn-sm btn-primary" onClick={() => handlePublish(survey._id)}>🚀 Publish</button>
                   )}
                   {survey.status === 'active' && (
-                    <button className="btn btn-sm btn-outline"
-                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/surveys/${survey._id}/respond`); }}>
-                      📋 Copy Link
-                    </button>
+                    <>
+                      <button className="btn btn-sm btn-outline"
+                        onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/surveys/${survey._id}/respond`); flash('📋 Link copied!'); }}>
+                        📋 Copy Link
+                      </button>
+                      {/* Fix #13: Close button added for parity */}
+                      <button className="btn btn-sm btn-danger" onClick={() => handleClose(survey._id)}>Close</button>
+                    </>
                   )}
                 </div>
               </div>

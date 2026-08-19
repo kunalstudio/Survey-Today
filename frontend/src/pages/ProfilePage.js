@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { userAPI } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks';
 
 const ProfilePage = () => {
+  useDocumentTitle('Profile');
   const { user, updateUser, logout } = useAuth();   // Fixed: updateUser not setUser
   const navigate = useNavigate();
   const [form,    setForm]    = useState({ name: user?.name || '' });
