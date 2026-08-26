@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSurvey, useSurveyResponse, useDocumentTitle } from '../hooks';
 
@@ -12,12 +12,11 @@ const TakeSurveyPage = () => {
   } = useSurveyResponse(id);
   useDocumentTitle(survey ? survey.title : 'Take Survey');
 
-  // Fix #10: removed unused `started` state
-  // Fix #15: track whether the session-start call is in-flight
-  const [sessionStarting, setSessionStarting] = React.useState(false);
-  const [confirmMessage, setConfirmMessage] = React.useState('');
+  const [sessionStarting, setSessionStarting] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [redirectUrl, setRedirectUrl] = useState('');
+  const [countdown, setCountdown] = useState(null);
 
-  // Fix #2: complete dependency array; use stable `start` ref via useCallback in hook
   useEffect(() => {
     if (survey && !responseId && !sessionStarting) {
       setSessionStarting(true);
@@ -25,13 +24,30 @@ const TakeSurveyPage = () => {
     }
   }, [survey, responseId, start, sessionStarting]);
 
-  if (surveyLoading) return <div className="loading-screen">Loading survey...</div>;
-  if (surveyError) return <div className="error-page"><h2>Survey not available</h2><p>{surveyError}</p></div>;
+  // Handle redirect timer if redirectUrl exists on submit
+  useEffect(() => {
+    if (submitted && redirectUrl) {
+      setCountdown(4);
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            window.location.href = redirectUrl;
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [submitted, redirectUrl]);
+
+  if (surveyLoading) return <div className="loading-screen">Loading survey…</div>;
+  if (surveyError) return <div className="error-page"><h2>Survey Not Available</h2><p>{surveyError}</p></div>;
   if (!survey) return null;
 
-  // Fix #15: show a spinner while the response session is being started
   if (sessionStarting || (!responseId && !surveyError)) {
-    return <div className="loading-screen">Starting survey session...</div>;
+    return <div className="loading-screen">Initializing secure survey session…</div>;
   }
 
   if (submitted) {
@@ -39,45 +55,60 @@ const TakeSurveyPage = () => {
       <div className="survey-complete">
         <div className="complete-icon">✓</div>
         <h2>Thank you!</h2>
-        <p>{confirmMessage || survey.settings?.confirmationMessage || 'Your response has been recorded.'}</p>
-        <button className="btn btn-outline" onClick={() => navigate('/explore')}>
-          Explore more surveys
-        </button>
+        <p>{confirmMessage || survey.settings?.confirmationMessage || 'Your response has been successfully recorded.'}</p>
+        
+        {redirectUrl && (
+          <div style={{ marginBottom: 20, fontSize: 13, color: '#a5b4fc' }}>
+            {countdown > 0 ? `Redirecting to partner site in ${countdown}s…` : 'Redirecting now…'}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {redirectUrl && (
+            <a href={redirectUrl} className="btn btn-render-white">
+              Continue to Destination →
+            </a>
+          )}
+          <button className="btn btn-outline" onClick={() => navigate('/explore')}>
+            Explore More Surveys
+          </button>
+        </div>
       </div>
     );
   }
 
   const questions = survey.questions?.slice().sort((a, b) => a.order - b.order) || [];
 
-  // Fix #11: guard for surveys with no questions
   if (questions.length === 0) {
     return (
       <div className="survey-complete">
-        <div className="complete-icon" style={{ fontSize: 48 }}>📋</div>
-        <h2>No Questions Yet</h2>
-        <p>This survey doesn't have any questions yet.</p>
+        <div className="complete-icon" style={{ fontSize: 44 }}>📋</div>
+        <h2>No Questions in this Survey</h2>
+        <p>The creator has not added any questions yet.</p>
         <button className="btn btn-outline" onClick={() => navigate('/explore')}>
-          Browse other surveys
+          Browse Other Surveys
         </button>
       </div>
     );
   }
 
   const currentQuestion = questions[currentIndex];
-  const progress = Math.round(((currentIndex) / questions.length) * 100);
+  const progress = Math.round(((currentIndex + 1) / questions.length) * 100);
   const isLast = currentIndex === questions.length - 1;
 
   const handleNext = () => {
-    // Fix #4: properly validate required checkbox (empty array is truthy)
     const answer = answers[currentQuestion._id];
-    const isEmpty = !answer || (Array.isArray(answer) && answer.length === 0);
+    const isEmpty = answer === undefined || answer === null || answer === '' || (Array.isArray(answer) && answer.length === 0);
     if (currentQuestion.required && isEmpty) {
-      alert('This question is required.');
+      alert('Please answer this required question to proceed.');
       return;
     }
     if (isLast) {
       submit().then((data) => {
-        if (data) setConfirmMessage(data.message || '');
+        if (data) {
+          setConfirmMessage(data.message || '');
+          if (data.redirectUrl) setRedirectUrl(data.redirectUrl);
+        }
       });
     } else {
       setCurrentIndex(currentIndex + 1);
@@ -90,22 +121,62 @@ const TakeSurveyPage = () => {
 
     switch (question.type) {
       case 'short_text':
-        return <input type="text" value={value || ''} onChange={(e) => onChange(e.target.value)} className="form-input" placeholder="Your answer..." />;
+        return (
+          <input
+            type="text"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="form-input"
+            placeholder="Type your response here…"
+            autoFocus
+          />
+        );
 
       case 'long_text':
-        return <textarea value={value || ''} onChange={(e) => onChange(e.target.value)} className="form-textarea" placeholder="Your answer..." rows={5} />;
+        return (
+          <textarea
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="form-textarea"
+            placeholder="Type detailed response here…"
+            rows={5}
+            autoFocus
+          />
+        );
 
       case 'multiple_choice':
-      case 'dropdown':
         return (
           <div className="options-list">
             {question.options.map((opt) => (
               <label key={opt._id} className={`option ${value === opt.text ? 'selected' : ''}`}>
-                <input type="radio" name={question._id} value={opt.text}
-                  checked={value === opt.text} onChange={() => onChange(opt.text)} />
-                {opt.text}
+                <input
+                  type="radio"
+                  name={question._id}
+                  value={opt.text}
+                  checked={value === opt.text}
+                  onChange={() => onChange(opt.text)}
+                />
+                <span>{opt.text}</span>
               </label>
             ))}
+          </div>
+        );
+
+      case 'dropdown':
+        return (
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <select
+              value={value || ''}
+              onChange={(e) => onChange(e.target.value)}
+              className="form-input"
+            >
+              <option value="">-- Select an option --</option>
+              {question.options.map((opt) => (
+                <option key={opt._id} value={opt.text}>
+                  {opt.text}
+                </option>
+              ))}
+            </select>
           </div>
         );
 
@@ -116,12 +187,16 @@ const TakeSurveyPage = () => {
               const checked = Array.isArray(value) && value.includes(opt.text);
               return (
                 <label key={opt._id} className={`option ${checked ? 'selected' : ''}`}>
-                  <input type="checkbox" value={opt.text} checked={checked}
+                  <input
+                    type="checkbox"
+                    value={opt.text}
+                    checked={checked}
                     onChange={(e) => {
                       const arr = Array.isArray(value) ? [...value] : [];
                       onChange(e.target.checked ? [...arr, opt.text] : arr.filter((v) => v !== opt.text));
-                    }} />
-                  {opt.text}
+                    }}
+                  />
+                  <span>{opt.text}</span>
                 </label>
               );
             })}
@@ -129,14 +204,47 @@ const TakeSurveyPage = () => {
         );
 
       case 'scale':
-      case 'rating':
+        const scaleCount = (question.scaleMax || 5) - (question.scaleMin || 1) + 1;
         return (
           <div className="scale-container">
-            <div className="scale-labels"><span>{question.scaleMinLabel || question.scaleMin}</span><span>{question.scaleMaxLabel || question.scaleMax}</span></div>
+            <div className="scale-labels">
+              <span>{question.scaleMinLabel || question.scaleMin}</span>
+              <span>{question.scaleMaxLabel || question.scaleMax}</span>
+            </div>
             <div className="scale-buttons">
-              {Array.from({ length: question.scaleMax - question.scaleMin + 1 }, (_, i) => question.scaleMin + i).map((n) => (
-                <button key={n} className={`scale-btn ${Number(value) === n ? 'active' : ''}`} onClick={() => onChange(n)}>{n}</button>
+              {Array.from({ length: scaleCount }, (_, i) => (question.scaleMin || 1) + i).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={`scale-btn ${Number(value) === n ? 'active' : ''}`}
+                  onClick={() => onChange(n)}
+                >
+                  {n}
+                </button>
               ))}
+            </div>
+          </div>
+        );
+
+      case 'rating':
+        const starCount = (question.scaleMax || 5);
+        return (
+          <div style={{ textAlign: 'center' }}>
+            <div className="rating-stars">
+              {Array.from({ length: starCount }, (_, i) => i + 1).map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  className={`star-btn ${Number(value) >= star ? 'active' : ''}`}
+                  onClick={() => onChange(star)}
+                  aria-label={`${star} star rating`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 13, color: '#94a3b8' }}>
+              {value ? `${value} of ${starCount} stars selected` : 'Select a rating'}
             </div>
           </div>
         );
@@ -144,12 +252,23 @@ const TakeSurveyPage = () => {
       case 'yes_no':
         return (
           <div className="yes-no-buttons">
-            <button className={`yn-btn ${value === 'Yes' ? 'active' : ''}`} onClick={() => onChange('Yes')}>Yes</button>
-            <button className={`yn-btn ${value === 'No' ? 'active' : ''}`} onClick={() => onChange('No')}>No</button>
+            <button
+              type="button"
+              className={`yn-btn ${value === 'Yes' ? 'active' : ''}`}
+              onClick={() => onChange('Yes')}
+            >
+              ✓ Yes
+            </button>
+            <button
+              type="button"
+              className={`yn-btn ${value === 'No' ? 'active' : ''}`}
+              onClick={() => onChange('No')}
+            >
+              ✕ No
+            </button>
           </div>
         );
 
-      // Fix #3: add date question type
       case 'date':
         return (
           <input
@@ -157,12 +276,19 @@ const TakeSurveyPage = () => {
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             className="form-input"
-            style={{ maxWidth: 240 }}
+            style={{ maxWidth: 280 }}
           />
         );
 
       default:
-        return <input type="text" value={value || ''} onChange={(e) => onChange(e.target.value)} className="form-input" />;
+        return (
+          <input
+            type="text"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="form-input"
+          />
+        );
     }
   };
 
@@ -187,7 +313,7 @@ const TakeSurveyPage = () => {
         </div>
       )}
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <div className="alert alert-error" style={{ maxWidth: 680, width: '100%' }}>{error}</div>}
 
       <div className="survey-nav">
         {currentIndex > 0 && (
@@ -195,8 +321,13 @@ const TakeSurveyPage = () => {
             ← Back
           </button>
         )}
-        <button className="btn btn-primary" onClick={handleNext} disabled={loading}>
-          {loading ? 'Submitting...' : isLast ? 'Submit Survey' : 'Next →'}
+        <button
+          className="btn btn-render-white"
+          onClick={handleNext}
+          disabled={loading}
+          style={{ marginLeft: currentIndex === 0 ? 'auto' : 0 }}
+        >
+          {loading ? 'Submitting…' : isLast ? 'Submit Survey ✓' : 'Next Question →'}
         </button>
       </div>
     </div>

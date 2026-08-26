@@ -137,8 +137,9 @@ exports.getQuestionAnalytics = async (req, res, next) => {
         q.values.length > 0
           ? parseFloat((q.values.reduce((sum, v) => sum + Number(v), 0) / q.values.length).toFixed(2))
           : null,
-      // Include raw values for text questions (up to 200)
-      textValues: ['short_text', 'long_text'].includes(q.type) ? q.values.slice(0, 200) : undefined,
+      values: q.values,
+      // Include raw values for text/date questions (up to 200)
+      textValues: ['short_text', 'long_text', 'date'].includes(q.type) ? q.values.slice(0, 200) : undefined,
     }));
 
     res.json({ success: true, analytics, totalCompleted });

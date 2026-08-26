@@ -55,8 +55,8 @@ const LoginPage = () => {
           <div className="form-footer-row">
             <Link to="/forgot-password">Forgot password?</Link>
           </div>
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
+          <button type="submit" className="btn btn-render-white btn-full" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign In →'}
           </button>
         </form>
 

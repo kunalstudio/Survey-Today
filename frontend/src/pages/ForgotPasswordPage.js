@@ -48,8 +48,8 @@ const ForgotPasswordPage = () => {
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-              {loading ? 'Sending...' : 'Send reset email'}
+            <button type="submit" className="btn btn-render-white btn-full" disabled={loading}>
+              {loading ? 'Sending link…' : 'Send Reset Link →'}
             </button>
           </form>
         )}

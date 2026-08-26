@@ -86,8 +86,8 @@ const ResetPasswordPage = () => {
                 </small>
               )}
             </div>
-            <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-              {loading ? 'Saving...' : 'Reset Password'}
+            <button type="submit" className="btn btn-render-white btn-full" disabled={loading}>
+              {loading ? 'Saving new password…' : 'Reset Password →'}
             </button>
           </form>
         )}

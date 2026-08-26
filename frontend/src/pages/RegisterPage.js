@@ -89,8 +89,8 @@ const RegisterPage = () => {
                 : '✅ Strong password!'}
             </small>
           </div>
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? 'Creating...' : 'Sign Up'}
+          <button type="submit" className="btn btn-render-white btn-full" disabled={loading}>
+            {loading ? 'Creating account…' : 'Create Free Account →'}
           </button>
         </form>
 

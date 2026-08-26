@@ -29,7 +29,7 @@ router.post('/:id/duplicate', protect, duplicateSurvey);
 
 // ─── Questions ─────────────────────────────────────────────────
 router.post('/:id/questions', protect, addQuestionRules, validate, addQuestion);
-router.put('/:id/questions/:questionId', protect, updateSurvey);
+router.put('/:id/questions/:questionId', protect, updateQuestion);
 router.delete('/:id/questions/:questionId', protect, deleteQuestion);
 router.patch('/:id/questions/reorder', protect, reorderQuestions);
 

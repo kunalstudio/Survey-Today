@@ -8,7 +8,6 @@ const SurveyResponsesPage = () => {
   const [survey,    setSurvey]    = useState(null);
   const [responses, setResponses] = useState([]);
   useDocumentTitle(survey ? `Responses — ${survey.title}` : 'Responses');
-  // Fix #6: separate initial loading from pagination loading to avoid full-page blank
   const [loading,   setLoading]   = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
   const [error,     setError]     = useState(null);
@@ -40,13 +39,12 @@ const SurveyResponsesPage = () => {
 
   useEffect(() => { load(1, true); }, [load]);
 
-  // When page changes after initial load, do a soft page load (no full-screen spinner)
   useEffect(() => {
     if (page > 1) load(page, false);
   }, [page]); // eslint-disable-line
 
   const handleDelete = async (responseId) => {
-    if (!window.confirm('Delete this response?')) return;
+    if (!window.confirm('Delete this response entry?')) return;
     try {
       await responseAPI.delete(id, responseId);
       setResponses(prev => prev.filter(r => r._id !== responseId));
@@ -73,15 +71,15 @@ const SurveyResponsesPage = () => {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>Responses</h1>
+          <h1>Survey Responses</h1>
           <p className="text-muted">
             {survey?.title} · <span className={`badge badge-${survey?.status}`}>{survey?.status}</span>
-            {' · '}{total} response{total !== 1 ? 's' : ''}
+            {' · '}{total} total response{total !== 1 ? 's' : ''}
           </p>
         </div>
-        <div style={{display:'flex',gap:8}}>
-          <Link to={`/surveys/${id}/analytics`} className="btn btn-outline">📊 Analytics</Link>
-          <Link to={`/surveys/${id}/edit`} className="btn btn-outline">✏ Builder</Link>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link to={`/surveys/${id}/analytics`} className="btn btn-outline btn-sm">📊 Analytics</Link>
+          <Link to={`/surveys/${id}/edit`} className="btn btn-outline btn-sm">✏ Builder</Link>
         </div>
       </div>
 
@@ -89,17 +87,22 @@ const SurveyResponsesPage = () => {
 
       {responses.length === 0 && !pageLoading && (
         <div className="empty-state">
-          <p>No responses yet.</p>
-          {/* Fix #16: show copy link for ALL active surveys, not just public ones */}
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+          <p>No responses recorded yet.</p>
           {survey?.status === 'active' && (
-            <button className="btn btn-outline" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/surveys/${id}/respond`); flash('📋 Link copied!'); }}>
+            <button
+              className="btn btn-render-white btn-sm"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/surveys/${id}/respond`);
+                flash('📋 Share link copied!');
+              }}
+            >
               📋 Copy Share Link
             </button>
           )}
         </div>
       )}
 
-      {/* Fix #6: inline spinner when changing pages */}
       {pageLoading && (
         <div className="loading-rows">
           <div className="skeleton-row" /><div className="skeleton-row" /><div className="skeleton-row" />
@@ -113,27 +116,32 @@ const SurveyResponsesPage = () => {
               <div key={r._id} className="response-card">
                 <div className="response-card-header" onClick={() => setExpanded(expanded === r._id ? null : r._id)}>
                   <div className="response-card-meta">
-                    <span className="response-num">#{(page-1)*LIMIT + idx + 1}</span>
+                    <span className="response-num">#{(page - 1) * LIMIT + idx + 1}</span>
                     <div className="response-user">
                       <div className="response-avatar">{r.respondent?.name?.[0]?.toUpperCase() || '?'}</div>
                       <div>
-                        <div className="response-name">{r.respondent?.name || 'Anonymous'}</div>
-                        <div className="response-email">{r.respondent?.email || 'No account'}</div>
+                        <div className="response-name">{r.respondent?.name || 'Anonymous User'}</div>
+                        <div className="response-email">{r.respondent?.email || 'No account attached'}</div>
                       </div>
                     </div>
-                    <span className={`badge badge-${r.status === 'completed' ? 'active' : 'draft'}`}>{r.status}</span>
+                    <span className={`badge badge-${r.status === 'completed' ? 'active' : 'draft'}`}>
+                      {r.status}
+                    </span>
                     <span className="response-date">{new Date(r.createdAt).toLocaleString()}</span>
-                    {r.answers?.length > 0 && <span className="text-muted">{r.answers.length} answer{r.answers.length!==1?'s':''}</span>}
+                    {r.answers?.length > 0 && (
+                      <span className="text-muted">{r.answers.length} answer{r.answers.length !== 1 ? 's' : ''}</span>
+                    )}
                   </div>
-                  <div style={{display:'flex', gap:8, alignItems:'center'}}>
-                    <button className="btn btn-sm btn-ghost" aria-label={expanded === r._id ? 'Collapse response' : 'Expand response'}>
-                      {expanded === r._id ? '▲ Hide' : '▼ View'}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button className="btn btn-sm btn-ghost">
+                      {expanded === r._id ? '▲ Collapse' : '▼ Inspect'}
                     </button>
                     <button
                       className="btn btn-sm btn-danger"
                       onClick={e => { e.stopPropagation(); handleDelete(r._id); }}
-                      aria-label="Delete this response"
-                    >🗑</button>
+                    >
+                      🗑
+                    </button>
                   </div>
                 </div>
 
@@ -142,14 +150,14 @@ const SurveyResponsesPage = () => {
                     {questions.length > 0 ? (
                       questions.map((q, qi) => (
                         <div key={q._id} className="response-answer-row">
-                          <div className="response-question">Q{qi+1}: {q.text}</div>
+                          <div className="response-question">Q{qi + 1}: {q.text}</div>
                           <div className="response-answer">{getAnswer(r, q._id)}</div>
                         </div>
                       ))
                     ) : (
                       r.answers?.map((a, ai) => (
                         <div key={ai} className="response-answer-row">
-                          <div className="response-question">Answer {ai+1}</div>
+                          <div className="response-question">Answer {ai + 1}</div>
                           <div className="response-answer">{Array.isArray(a.value) ? a.value.join(', ') : String(a.value ?? '—')}</div>
                         </div>
                       ))
@@ -163,9 +171,21 @@ const SurveyResponsesPage = () => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="pagination">
-              <button className="btn btn-outline btn-sm" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1 || pageLoading}>← Prev</button>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1 || pageLoading}
+              >
+                ← Prev
+              </button>
               <span className="pagination-info">Page {page} of {totalPages}</span>
-              <button className="btn btn-outline btn-sm" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages || pageLoading}>Next →</button>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages || pageLoading}
+              >
+                Next →
+              </button>
             </div>
           )}
         </>
